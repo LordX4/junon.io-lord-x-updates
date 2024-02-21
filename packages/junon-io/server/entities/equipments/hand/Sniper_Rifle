@@ -1,0 +1,77 @@
+const HandEquipment = require("./hand_equipment");
+const Projectiles = require("./../../projectiles/index");
+const Protocol = require('../../../../common/util/protocol');
+const Constants = require("./../../../../common/constants.json");
+
+class SniperRifle extends HandEquipment {
+
+  onEquipmentConstructed() {
+    this.MAX_RELOAD_COUNT = 250; // Maximum reload count
+    this.currentReloadCount = this.MAX_RELOAD_COUNT; // Initialize current reload count
+    this.damage = 75; // Damage of the sniper rifle
+    this.burst = false; // Sniper rifles do not have burst mode
+    this.range = 100; // Range of the sniper rifle
+    this.bulletSpeed = 500; // Bullet speed of the sniper rifle
+  }
+
+  use(user, targetEntity) {
+    if (this.isProcessing) return false;
+    if (this.currentReloadCount <= 0) {
+      user.showError("Out of ammo. Reload required.");
+      return false;
+    }
+
+    super.use(user, targetEntity);
+
+    this.targetUser = user;
+    this.currentReloadCount--; // Reduce reload count
+    this.addProcessor();
+
+    return true;
+  }
+
+  reduceReload() {
+    this.currentReloadCount--;
+    if (this.currentReloadCount < 0) this.currentReloadCount = 0;
+  }
+
+  executeTurn() {
+    let user = this.targetUser;
+
+    let angleInRad = user.getRadAngle();
+    let angleRandomizer = 2 - Math.floor(Math.random() * 5);
+    angleInRad = angleInRad + (angleRandomizer * Math.PI / 180);
+
+    new Projectiles.RifleAmmo({ // Changed to RifleAmmo
+      weapon: this,
+      source: { x: user.getX(), y: user.getY() },
+      destination: user.getShootTarget(this, angleInRad),
+      speed: this.bulletSpeed, // Set bullet speed
+      ammoType: Protocol.definition().BuildingType.RifleAmmo // Set ammo type
+    });
+
+    this.removeProcessor();
+  }
+
+  addProcessor() {
+    this.targetUser.getSector().addProcessor(this);
+    this.setIsProcessing(true);
+  }
+
+  removeProcessor() {
+    this.targetUser.getSector().removeProcessor(this);
+    this.setIsProcessing(false);
+  }
+
+  setIsProcessing(isProcessing) {
+    if (this.isProcessing !== isProcessing) {
+      this.isProcessing = isProcessing;
+      this.onIsProcessingChanged();
+    }
+  }
+
+  onIsProcessingChanged() {
+  }
+}
+
+module.exports = SniperRifle;
